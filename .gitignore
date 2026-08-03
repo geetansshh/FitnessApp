@@ -1,0 +1,7 @@
+.DS_Store
+prompt.md
+.claude/settings.local.json
+ios/build/
+xcuserdata/
+*.xcuserstate
+backend/data/

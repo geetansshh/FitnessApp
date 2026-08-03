@@ -1,0 +1,159 @@
+import SwiftUI
+import SwiftData
+
+/// The dashboard: date nav, calorie ring, macros, water, streak, and goal/weight trend.
+struct DashboardView: View {
+    let profile: UserProfile
+    @AppStorage(SettingsKey.unitSystem) private var unitRaw = UnitSystem.metric.rawValue
+    @Environment(DaySelection.self) private var day
+
+    @Query private var allFoods: [FoodEntry]
+    @Query private var allWaters: [WaterEntry]
+    @Query(sort: \WeightEntry.day) private var weights: [WeightEntry]
+
+    private var system: UnitSystem { UnitSystem(rawValue: unitRaw) ?? .metric }
+    private var dayKey: String { day.dayKey }
+    private var dayFoods: [FoodEntry] { allFoods.filter { $0.day == dayKey } }
+    private var dayWaters: [WaterEntry] { allWaters.filter { $0.day == dayKey } }
+    private var summary: DailySummary {
+        DailySummary.build(profile: profile, foods: dayFoods, waters: dayWaters)
+    }
+    private var streak: Int {
+        Insights.streak(foodDays: Set(allFoods.map { $0.day }))
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    DateNavBar(selection: day)
+
+                    if streak > 0 {
+                        Label("\(streak)-day logging streak 🔥", systemImage: "flame.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.calorie)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Theme.calorie.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+
+                    // Calorie ring
+                    VStack(spacing: 8) {
+                        CalorieRing(summary: summary)
+                        HStack(spacing: 24) {
+                            statColumn("Eaten", "\(summary.caloriesConsumed)", Theme.calorie)
+                            statColumn("Target", "\(summary.calorieTarget)", .secondary)
+                            statColumn("Left", "\(max(summary.caloriesRemaining, 0))", Theme.weight)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .card()
+
+                    // Macros
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Macros").font(.headline)
+                        MacroBar(title: "Protein", grams: summary.protein,
+                                 target: summary.proteinTarget, color: Theme.protein)
+                        MacroBar(title: "Carbs", grams: summary.carbs,
+                                 target: summary.carbsTarget, color: Theme.carbs)
+                        MacroBar(title: "Fats", grams: summary.fats,
+                                 target: summary.fatsTarget, color: Theme.fats)
+                    }
+                    .card()
+
+                    // Water
+                    ProgressStat(
+                        title: "Water",
+                        caption: "\(Units.displayVolume(ml: summary.waterMl, system: system)) / \(Units.displayVolume(ml: summary.waterGoalMl, system: system)) \(system.volumeUnit)",
+                        progress: summary.waterProgress, color: Theme.water)
+                        .card()
+
+                    // Goal / weight trend
+                    GoalProgressCard(profile: profile, weights: weights, system: system)
+                }
+                .padding()
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle(greeting)
+        }
+        .onAppear(perform: publishWidget)
+        .onChange(of: allFoods.count) { _, _ in publishWidget() }
+        .onChange(of: allWaters.count) { _, _ in publishWidget() }
+    }
+
+    /// Push *today's* numbers to the shared App Group for the widget.
+    private func publishWidget() {
+        let today = DayKey.today
+        let s = DailySummary.build(profile: profile,
+                                   foods: allFoods.filter { $0.day == today },
+                                   waters: allWaters.filter { $0.day == today })
+        WidgetBridge.publish(s, day: today)
+    }
+
+    private var greeting: String {
+        let name = profile.name.isEmpty ? "" : ", \(profile.name)"
+        return "Hi\(name)"
+    }
+
+    private func statColumn(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack {
+            Text(value).font(.title3.weight(.semibold)).foregroundStyle(color)
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Weight goal progress + latest vs goal + estimated time to goal.
+struct GoalProgressCard: View {
+    let profile: UserProfile
+    let weights: [WeightEntry]
+    let system: UnitSystem
+
+    private var latest: Double { weights.last?.weightKg ?? profile.weightKg }
+    private var start: Double { weights.first?.weightKg ?? profile.startWeightKg }
+
+    private var progress: Double {
+        let total = start - profile.goalWeightKg
+        guard abs(total) > 0.01 else { return 1 }
+        let done = start - latest
+        return min(max(done / total, 0), 1)
+    }
+
+    private var etaWeeks: Int? {
+        let plan = CalorieCalculator.plan(age: profile.age, sex: profile.sex,
+                                          heightCm: profile.heightCm, weightKg: latest,
+                                          activity: profile.activity, goal: profile.goal)
+        return Insights.weeksToGoal(currentKg: latest, goalKg: profile.goalWeightKg,
+                                    tdee: plan.tdee, calorieTarget: plan.calorieTarget)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Weight goal").font(.headline)
+            HStack {
+                weightColumn("Now", latest)
+                Spacer()
+                weightColumn("Goal", profile.goalWeightKg)
+            }
+            ProgressView(value: progress).tint(Theme.weight)
+            HStack {
+                Text("\(Int(progress * 100))% to goal")
+                if let w = etaWeeks {
+                    Spacer()
+                    Text("~\(w) \(w == 1 ? "week" : "weeks") to go")
+                }
+            }
+            .font(.caption).foregroundStyle(.secondary)
+        }
+        .card()
+    }
+
+    private func weightColumn(_ label: String, _ kg: Double) -> some View {
+        VStack(alignment: .leading) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text("\(Units.displayWeight(kg: kg, system: system), specifier: "%.1f") \(system.weightUnit)")
+                .font(.title3.weight(.semibold))
+        }
+    }
+}
