@@ -6,7 +6,8 @@ import (
 	"os"
 
 	"fitnessapp/backend/internal/api"
-	"fitnessapp/backend/internal/store"
+	"fitnessapp/backend/internal/repo"
+	"fitnessapp/backend/internal/service"
 )
 
 func main() {
@@ -15,11 +16,14 @@ func main() {
 		log.Fatal("DATABASE_URL is required (Postgres connection string)")
 	}
 
-	s, err := store.New(dbURL)
+	// Wiring: repo (Postgres) -> service (rules) -> api (HTTP).
+	database, err := repo.NewPostgres(dbURL)
 	if err != nil {
 		log.Fatalf("connect/migrate database: %v", err)
 	}
-	defer s.Close()
+	defer database.Close()
+
+	svc := service.New(database)
 
 	// Optional shared-secret gate. If API_KEY is set, requests must send X-API-Key.
 	apiKey := os.Getenv("API_KEY")
@@ -31,7 +35,7 @@ func main() {
 	addr := ":" + port
 
 	log.Printf("fitness backend listening on %s (auth=%v)", addr, apiKey != "")
-	if err := http.ListenAndServe(addr, api.NewRouter(s, apiKey)); err != nil {
+	if err := http.ListenAndServe(addr, api.NewRouter(svc, apiKey)); err != nil {
 		log.Fatal(err)
 	}
 }

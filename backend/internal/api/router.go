@@ -3,13 +3,13 @@ package api
 import (
 	"net/http"
 
-	"fitnessapp/backend/internal/store"
+	"fitnessapp/backend/internal/service"
 )
 
 // NewRouter wires the handlers onto a Go 1.22 method-pattern ServeMux, wrapped in
 // CORS and (if apiKey is non-empty) a shared-secret gate.
-func NewRouter(s *store.Store, apiKey string) http.Handler {
-	h := &Handlers{store: s}
+func NewRouter(svc *service.Service, apiKey string) http.Handler {
+	h := &Handlers{svc: svc}
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/v1/calorie-target", h.calorieTarget)

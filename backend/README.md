@@ -50,6 +50,35 @@ Writes are **idempotent**: `POST /food|/water|/weight` keeps a client-supplied
 `id` and upserts on it, so the app can re-run a full backup without duplicating
 rows. Omit `id` and the server generates one.
 
+## Architecture
+
+Request flow is one direction only — each layer depends on the one below it and
+never the reverse:
+
+```
+main.go            wiring: repo -> service -> router
+  internal/api/        router.go    routes + CORS + API-key middleware
+                       handlers.go  decode JSON -> call service -> write JSON
+                       respond.go   the one place errors become status codes
+  internal/service/    business rules: validation, id/timestamp stamping,
+                       target recomputation, daily aggregation
+  internal/repo/       Repository interface + Postgres implementation (SQL only)
+  internal/validation/ every input rule, returning a typed *validation.Error
+  internal/calc/       pure Mifflin-St Jeor math, mirrors the iOS calculator
+  internal/models/     domain types; JSON tags the Swift client depends on
+```
+
+Handlers hold no business logic, and the service depends on the `repo.Repository`
+interface rather than Postgres — so `internal/service` is tested against an
+in-memory fake with no database:
+
+```sh
+go test ./...            # calc + service, no DB needed
+```
+
+Error mapping is centralised in `api/respond.go`: a `*validation.Error` becomes
+400, `repo.ErrNotFound` becomes 404, anything else is a 500.
+
 ## Storage & users
 
 Postgres: `profiles` (JSONB, one row per user), `food` / `water` / `weight`
