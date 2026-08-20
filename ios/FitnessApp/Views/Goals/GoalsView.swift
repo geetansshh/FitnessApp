@@ -18,7 +18,7 @@ struct GoalsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: Theme.gutter) {
                     WeightChartCard(profile: profile, weights: weights, system: system)
 
                     CalorieHistoryCard(profile: profile, foods: allFoods)
@@ -32,7 +32,7 @@ struct GoalsView: View {
 
                     // Recent history
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("History").font(.headline)
+                        CardTitle("History")
                         if weights.isEmpty {
                             Text("No entries yet.").foregroundStyle(.secondary)
                         }
@@ -66,19 +66,9 @@ struct GoalsView: View {
         }
     }
 
-    /// One weigh-in per day: replace today's entry if it exists. Keeps the profile weight fresh.
     private func upsertWeight(kg: Double) {
-        let today = DayKey.today
-        if let existing = weights.first(where: { $0.day == today }) {
-            existing.weightKg = kg
-        } else {
-            context.insert(WeightEntry(day: today, weightKg: kg))
-        }
-        profile.weightKg = kg
-        profile.recomputeTargets()
-        if healthKitEnabled {
-            Task { await HealthKitService.saveWeight(kg: kg, date: Date()) }
-        }
+        WeightLog.upsert(kg: kg, weights: weights, profile: profile,
+                         context: context, healthKitEnabled: healthKitEnabled)
     }
 }
 
@@ -89,11 +79,11 @@ struct WeightChartCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Weight trend").font(.headline)
+            CardTitle("Weight trend")
             if weights.count < 2 {
-                Text("Log a couple of weigh-ins to see your trend.")
-                    .font(.subheadline).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 160)
+                EmptyHint(icon: "chart.xyaxis.line", title: "No trend yet",
+                          message: "Log a couple of weigh-ins to see your progress line.")
+                    .frame(minHeight: 160)
             } else {
                 Chart {
                     ForEach(weights) { w in
@@ -151,17 +141,11 @@ struct CalorieHistoryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Calorie history").font(.headline)
-                Spacer()
-                if weeklyAvg > 0 {
-                    Text("avg \(weeklyAvg) kcal").font(.caption).foregroundStyle(.secondary)
-                }
-            }
+            CardTitle("Calorie history", accessory: weeklyAvg > 0 ? "avg \(weeklyAvg) kcal" : nil)
             if loggedDays.isEmpty {
-                Text("Log a few days to see your intake trend.")
-                    .font(.subheadline).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 140)
+                EmptyHint(icon: "chart.bar", title: "No history yet",
+                          message: "Log a few days to see how your intake tracks your target.")
+                    .frame(minHeight: 140)
             } else {
                 Chart {
                     ForEach(last14) { d in

@@ -1,0 +1,15 @@
+# Render blueprint. In Render: New → Blueprint → point at this repo.
+# Set DATABASE_URL (a free Neon Postgres string) and API_KEY in the dashboard.
+services:
+  - type: web
+    name: fitnessapp-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        sync: false     # paste your Neon connection string
+      - key: API_KEY
+        generateValue: true

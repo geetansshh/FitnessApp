@@ -1,26 +1,37 @@
 import SwiftUI
 
 /// Big calorie ring: consumed vs target with "remaining" in the center.
+/// Turns red once you go over budget so the state is readable at a glance.
 struct CalorieRing: View {
     let summary: DailySummary
+    private var over: Bool { summary.caloriesRemaining < 0 }
+    private var tint: Color { over ? .red : Theme.calorie }
+
     var body: some View {
         ZStack {
-            Circle().stroke(Color(.tertiarySystemFill), lineWidth: 16)
+            Circle().stroke(Color(.tertiarySystemFill), lineWidth: 18)
             Circle()
                 .trim(from: 0, to: summary.calorieProgress)
-                .stroke(Theme.calorie, style: StrokeStyle(lineWidth: 16, lineCap: .round))
+                .stroke(Theme.sweep(tint), style: StrokeStyle(lineWidth: 18, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 0.4), value: summary.calorieProgress)
+                .animation(Theme.motion, value: summary.calorieProgress)
             VStack(spacing: 2) {
-                Text("\(max(summary.caloriesRemaining, 0))")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                Text(summary.caloriesRemaining >= 0 ? "kcal left" : "over")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text("\(abs(summary.caloriesRemaining))")
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .foregroundStyle(over ? .red : .primary)
+                    .contentTransition(.numericText())
+                    .animation(Theme.motion, value: summary.caloriesRemaining)
+                Text(over ? "kcal over" : "kcal left")
+                    .font(.caption.weight(.medium)).foregroundStyle(.secondary)
                 Text("\(summary.caloriesConsumed) / \(summary.calorieTarget)")
                     .font(.caption2).foregroundStyle(.tertiary)
             }
         }
-        .frame(width: 180, height: 180)
+        .frame(width: 190, height: 190)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(over
+            ? "\(abs(summary.caloriesRemaining)) calories over your target"
+            : "\(summary.caloriesRemaining) calories left of \(summary.calorieTarget)")
     }
 }
 
@@ -34,48 +45,65 @@ struct MacroBar: View {
     private var progress: Double { target > 0 ? min(grams / Double(target), 1) : 0 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text(title).font(.subheadline.weight(.medium))
                 Spacer()
-                Text("\(Int(grams)) / \(target) g").font(.caption).foregroundStyle(.secondary)
+                Text("\(Int(grams)) / \(target) g")
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color(.tertiarySystemFill))
-                    Capsule().fill(color).frame(width: geo.size.width * progress)
-                        .animation(.easeOut(duration: 0.3), value: progress)
+                    Capsule().fill(Theme.bar(color))
+                        .frame(width: max(geo.size.width * progress, progress > 0 ? 8 : 0))
+                        .animation(Theme.motion, value: progress)
                 }
             }
-            .frame(height: 8)
+            .frame(height: 9)
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
-/// ‹ Today › date navigator shared by Dashboard/Food/Water (feature #1).
+/// ‹ Today › date navigator shared by Dashboard/Food/Water.
 struct DateNavBar: View {
     @Bindable var selection: DaySelection
 
     var body: some View {
-        HStack {
-            Button { withAnimation { selection.shift(-1) } } label: {
-                Image(systemName: "chevron.left").frame(width: 44, height: 32)
-            }
+        HStack(spacing: 0) {
+            navButton("chevron.left", enabled: true) { selection.shift(-1) }
             Spacer()
-            Button { withAnimation { selection.goToday() } } label: {
+            Button {
+                Haptics.tap()
+                withAnimation(Theme.motion) { selection.goToday() }
+            } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "calendar")
+                    Image(systemName: "calendar").font(.footnote)
                     Text(selection.label).fontWeight(.semibold)
                 }
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 14).padding(.vertical, 7)
+                .background(Color(.tertiarySystemFill), in: Capsule())
             }
-            .tint(.primary)
+            .buttonStyle(.plain)
             Spacer()
-            Button { withAnimation { selection.shift(1) } } label: {
-                Image(systemName: "chevron.right").frame(width: 44, height: 32)
-            }
-            .disabled(!selection.canGoForward)
+            navButton("chevron.right", enabled: selection.canGoForward) { selection.shift(1) }
         }
         .padding(.horizontal, 4)
+    }
+
+    private func navButton(_ icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            withAnimation(Theme.motion) { action() }
+        } label: {
+            Image(systemName: icon).font(.body.weight(.semibold))
+                .frame(width: 44, height: 34)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(enabled ? Color.primary : Color(.tertiaryLabel))
+        .disabled(!enabled)
     }
 }
 
@@ -87,13 +115,36 @@ struct ProgressStat: View {
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(title).font(.subheadline.weight(.semibold))
-                Spacer()
-                Text(caption).font(.caption).foregroundStyle(.secondary)
-            }
+        VStack(alignment: .leading, spacing: Theme.tight) {
+            CardTitle(title, accessory: caption)
             ProgressView(value: progress).tint(color)
+                .animation(Theme.motion, value: progress)
         }
+    }
+}
+
+/// One tappable action tile in the dashboard's quick-action row.
+struct QuickAction: View {
+    let icon: String
+    let title: String
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            VStack(spacing: 5) {
+                Image(systemName: icon).font(.title3)
+                Text(title).font(.caption2.weight(.medium))
+            }
+            .foregroundStyle(color)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(color.opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }

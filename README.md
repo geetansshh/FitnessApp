@@ -6,7 +6,7 @@ MyFitnessPal. **Local-first** SwiftUI iOS app with an **optional** Go backend fo
 ```
 FitnessApp/
 ├── ios/        SwiftUI app (MVVM, SwiftData local storage, Swift Charts)
-└── backend/    Go REST API (stdlib only, JSON-file store) — optional
+└── backend/    Go REST API (Postgres) — optional cloud backup
 ```
 
 ## iOS app
@@ -20,9 +20,11 @@ open ios/FitnessApp.xcodeproj
 Pick an iPhone simulator and hit ⌘R. Everything works offline — no backend needed.
 
 **Features:** onboarding with a Mifflin-St Jeor calorie/macro calculator (+ water goal); a Today
-dashboard with date navigation, a logging **streak**, calorie ring, macro bars, water, and
-weight-goal progress with an **ETA to goal**; food logging grouped by **meal** (breakfast/lunch/
-dinner/snack) with quick-add presets, **recent foods**, and tap-to-edit; a water tracker with
+dashboard with date navigation, a logging **streak**, calorie ring, macro bars, water,
+weight-goal progress with an **ETA to goal**, and **one-tap quick actions** (log food / add a
+glass / weigh in) without leaving the tab; food logging grouped by **meal** with a **searchable
+built-in food table** (~70 common foods, servings stepper), **recent foods**, per-meal add
+buttons, swipe-to-repeat, and tap-to-edit; a water tracker with preset amounts and
 configurable local reminder times; **weight-trend** and **14-day calorie-history** charts; editable
 goals that recompute the target; **Apple Health** two-way weight sync + steps/energy read; a
 **Home/Lock-Screen widget** (calories left + water); and settings (units, reminders, sync, reset).
@@ -39,14 +41,18 @@ Signing & Capabilities and set your Team before running on a device / TestFlight
 
 ## Backend (optional)
 
-Pure Go standard library — no modules to download, no CGO.
+Go + Postgres (`pgx`), no CGO — builds a static binary and a distroless image.
 
 ```
 cd backend
+export DATABASE_URL='postgres://...'
 go run .
 ```
-Listens on `:8080`, persists to `./data/fitness.json`. See `backend/README.md` for the API.
-In the app: Settings → enable server sync → set the URL → "Back up now".
+Listens on `:8080`; tables are created on startup. See `backend/README.md` for the API and
+deploy steps (`render.yaml` at the repo root is a one-click Render blueprint).
+In the app: Settings → enable server sync → set the URL and API key → "Back up now".
+Backup is push-only and **idempotent** — entries carry their local id, so re-running it
+updates rows instead of duplicating them.
 
 The calorie math in `ios/.../Calc/CalorieCalculator.swift` and `backend/internal/calc`
 is intentionally identical so offline and server results match.

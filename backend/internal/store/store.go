@@ -99,7 +99,10 @@ func (s *Store) PutProfile(user string, p models.Profile) error {
 func (s *Store) AddFood(user string, e models.FoodEntry) error {
 	_, err := s.pool.Exec(ctx(),
 		`INSERT INTO food (id, user_id, date, name, calories, protein, carbs, fats, created_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		 ON CONFLICT (id) DO UPDATE SET date=EXCLUDED.date, name=EXCLUDED.name,
+		   calories=EXCLUDED.calories, protein=EXCLUDED.protein,
+		   carbs=EXCLUDED.carbs, fats=EXCLUDED.fats`,
 		e.ID, user, e.Date, e.Name, e.Calories, e.Protein, e.Carbs, e.Fats, e.CreatedAt)
 	return err
 }
@@ -136,7 +139,8 @@ func (s *Store) DeleteFood(user, id string) bool {
 
 func (s *Store) AddWater(user string, e models.WaterEntry) error {
 	_, err := s.pool.Exec(ctx(),
-		`INSERT INTO water (id, user_id, date, amount_ml, created_at) VALUES ($1,$2,$3,$4,$5)`,
+		`INSERT INTO water (id, user_id, date, amount_ml, created_at) VALUES ($1,$2,$3,$4,$5)
+		 ON CONFLICT (id) DO UPDATE SET date=EXCLUDED.date, amount_ml=EXCLUDED.amount_ml`,
 		e.ID, user, e.Date, e.AmountMl, e.CreatedAt)
 	return err
 }
@@ -173,7 +177,8 @@ func (s *Store) DeleteWater(user, id string) bool {
 
 func (s *Store) AddWeight(user string, e models.WeightEntry) error {
 	_, err := s.pool.Exec(ctx(),
-		`INSERT INTO weight (id, user_id, date, weight_kg, created_at) VALUES ($1,$2,$3,$4,$5)`,
+		`INSERT INTO weight (id, user_id, date, weight_kg, created_at) VALUES ($1,$2,$3,$4,$5)
+		 ON CONFLICT (id) DO UPDATE SET date=EXCLUDED.date, weight_kg=EXCLUDED.weight_kg`,
 		e.ID, user, e.Date, e.WeightKg, e.CreatedAt)
 	return err
 }

@@ -18,6 +18,15 @@ type Handlers struct {
 
 // --- helpers ---
 
+// keepOrNewID preserves a client-supplied id (so a re-run of the app's backup
+// upserts the same row instead of duplicating it) and generates one otherwise.
+func keepOrNewID(id string) string {
+	if len(id) > 0 && len(id) <= 64 {
+		return id
+	}
+	return newID()
+}
+
 func newID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b) // crypto/rand.Read only fails on catastrophic OS errors
@@ -134,11 +143,11 @@ func (h *Handlers) createFood(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	if !validDate(e.Date) || e.Name == "" || e.Calories < 0 || e.Protein < 0 || e.Carbs < 0 || e.Fats < 0 {
-		writeErr(w, http.StatusBadRequest, "invalid input: check date (YYYY-MM-DD), name, and non-negative macros")
+	if !validDate(e.Date) || e.Calories < 0 || e.Protein < 0 || e.Carbs < 0 || e.Fats < 0 {
+		writeErr(w, http.StatusBadRequest, "invalid input: check date (YYYY-MM-DD) and non-negative macros")
 		return
 	}
-	e.ID = newID()
+	e.ID = keepOrNewID(e.ID)
 	e.CreatedAt = nowRFC3339()
 	if err := h.store.AddFood(userID(r), e); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not save food entry")
@@ -176,7 +185,7 @@ func (h *Handlers) createWater(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid input: check date (YYYY-MM-DD) and positive amountMl")
 		return
 	}
-	e.ID = newID()
+	e.ID = keepOrNewID(e.ID)
 	e.CreatedAt = nowRFC3339()
 	if err := h.store.AddWater(userID(r), e); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not save water entry")
@@ -209,7 +218,7 @@ func (h *Handlers) createWeight(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid input: check date (YYYY-MM-DD) and positive weightKg")
 		return
 	}
-	e.ID = newID()
+	e.ID = keepOrNewID(e.ID)
 	e.CreatedAt = nowRFC3339()
 	if err := h.store.AddWeight(userID(r), e); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not save weight entry")

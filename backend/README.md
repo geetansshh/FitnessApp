@@ -33,14 +33,22 @@ go test ./internal/calc/...
 
 1. **Neon** ([neon.tech](https://neon.tech)) → create a project → copy the
    connection string (looks like `postgres://...@...neon.tech/neondb?sslmode=require`).
-2. **Render** ([render.com](https://render.com)) → New → **Web Service** →
-   point at this repo, **Root Directory = `backend`** (it auto-detects the
-   `Dockerfile`) → add env var `DATABASE_URL` = the Neon string → Deploy.
-3. Render gives an HTTPS URL like `https://fitnessapp-xxx.onrender.com`. Put
-   that in the iOS app: **Settings → server URL → Back up now**.
+2. **Render** ([render.com](https://render.com)) → New → **Blueprint** → point at
+   this repo. `render.yaml` (repo root) defines the service; paste the Neon string
+   into `DATABASE_URL` and let Render generate `API_KEY`.
+   (Manual route: New → Web Service, **Root Directory = `backend`**, Docker runtime.)
+3. Render gives an HTTPS URL like `https://fitnessapp-api.onrender.com`. Put that
+   plus the API key in the iOS app: **Settings → Cloud backup → Back up now**.
+
+The free plan sleeps after ~15 min idle, so the first request after a nap takes
+~30 s. That only affects backups, never the app itself — it is local-first.
 
 `Dockerfile` builds a tiny static image; `go.sum` is committed so the build is
 reproducible.
+
+Writes are **idempotent**: `POST /food|/water|/weight` keeps a client-supplied
+`id` and upserts on it, so the app can re-run a full backup without duplicating
+rows. Omit `id` and the server generates one.
 
 ## Storage & users
 

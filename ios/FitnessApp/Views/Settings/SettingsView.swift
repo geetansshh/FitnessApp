@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.waterReminderEnd) private var reminderEnd = 21
     @AppStorage(SettingsKey.syncEnabled) private var syncEnabled = false
     @AppStorage(SettingsKey.serverURL) private var serverURL = "http://localhost:8080"
+    @AppStorage(SettingsKey.apiKey) private var apiKey = ""
     @AppStorage(SettingsKey.healthKitEnabled) private var healthKitEnabled = false
     @State private var healthStatus = ""
 
@@ -78,6 +79,10 @@ struct SettingsView: View {
                         TextField("Server URL", text: $serverURL)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                        SecureField("API key (if your server sets one)", text: $apiKey)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
                         Button("Test connection") { Task { await testConnection() } }
                         Button("Back up now") { Task { await backup() } }
                         if !syncStatus.isEmpty {
@@ -108,7 +113,7 @@ struct SettingsView: View {
 
     private func client() -> APIClient? {
         guard let url = URL(string: serverURL) else { return nil }
-        return APIClient(baseURL: url)
+        return APIClient(baseURL: url, apiKey: apiKey)
     }
 
     private func reschedule() {

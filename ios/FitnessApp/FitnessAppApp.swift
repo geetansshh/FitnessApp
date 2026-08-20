@@ -10,6 +10,7 @@ enum SettingsKey {
     static let waterReminderEnd = "waterReminderEnd"       // hour 0-23 (#8)
     static let syncEnabled = "syncEnabled"
     static let serverURL = "serverURL"
+    static let apiKey = "apiKey"
     static let onboarded = "onboarded"
     static let healthKitEnabled = "healthKitEnabled"
 }
@@ -23,6 +24,7 @@ struct FitnessAppApp: App {
         #if DEBUG
         CalorieCalculator.selfCheck()
         Insights.selfCheck()
+        FoodLibrary.selfCheck()
         #endif
         do {
             container = try ModelContainer(for: UserProfile.self, FoodEntry.self,

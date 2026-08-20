@@ -20,49 +20,77 @@ struct WaterView: View {
 
     /// One tap = one glass. 250 ml (metric) / 8 oz (imperial ≈ 237 ml).
     private var glassMl: Int { system == .metric ? 250 : 237 }
+    private var presets: [Int] { system == .metric ? [500, 1000] : [473, 946] }
+
+    private func add(_ ml: Int) {
+        Haptics.success()
+        withAnimation(Theme.motion) {
+            context.insert(WaterEntry(day: today, amountMl: ml))
+        }
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: Theme.gutter) {
                     DateNavBar(selection: day)
                     ZStack {
-                        Circle().stroke(Color(.tertiarySystemFill), lineWidth: 18)
+                        Circle().stroke(Color(.tertiarySystemFill), lineWidth: 20)
                         Circle().trim(from: 0, to: progress)
-                            .stroke(Theme.water, style: StrokeStyle(lineWidth: 18, lineCap: .round))
+                            .stroke(Theme.sweep(Theme.water),
+                                    style: StrokeStyle(lineWidth: 20, lineCap: .round))
                             .rotationEffect(.degrees(-90))
-                            .animation(.easeOut(duration: 0.35), value: progress)
-                        VStack {
+                            .animation(Theme.motion, value: progress)
+                        VStack(spacing: 2) {
                             Text("\(Units.displayVolume(ml: totalMl, system: system))")
-                                .font(.system(size: 44, weight: .bold, design: .rounded))
+                                .font(.system(size: 46, weight: .bold, design: .rounded))
+                                .contentTransition(.numericText())
+                                .animation(Theme.motion, value: totalMl)
                             Text("of \(Units.displayVolume(ml: profile.waterGoalMl, system: system)) \(system.volumeUnit)")
                                 .font(.subheadline).foregroundStyle(.secondary)
+                            if progress >= 1 {
+                                Text("Goal hit 🎉").font(.caption.weight(.semibold))
+                                    .foregroundStyle(Theme.water)
+                            }
                         }
                     }
-                    .frame(width: 200, height: 200)
+                    .frame(width: 210, height: 210)
                     .padding(.top)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(Int(progress * 100)) percent of your water goal")
 
-                    HStack(spacing: 14) {
-                        Button {
-                            context.insert(WaterEntry(day: today, amountMl: glassMl))
-                        } label: {
-                            Label("Add glass", systemImage: "plus").frame(maxWidth: .infinity)
+                    Button { add(glassMl) } label: {
+                        Label("Add a glass", systemImage: "plus")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 30)
+                    }
+                    .buttonStyle(.borderedProminent).tint(Theme.water)
+                    .controlSize(.large)
+
+                    // Common non-glass amounts, so a bottle isn't four taps.
+                    HStack(spacing: 10) {
+                        ForEach(presets, id: \.self) { ml in
+                            Button { add(ml) } label: {
+                                Text("+\(Units.displayVolume(ml: ml, system: system)) \(system.volumeUnit)")
+                                    .font(.subheadline).frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered).tint(Theme.water)
                         }
-                        .buttonStyle(.borderedProminent).tint(Theme.water)
-
-                        Button(role: .destructive) {
+                        Button {
+                            Haptics.tap()
                             if let last = todayWaters.max(by: { $0.createdAt < $1.createdAt }) {
-                                context.delete(last)
+                                withAnimation(Theme.motion) { context.delete(last) }
                             }
                         } label: {
-                            Label("Undo", systemImage: "arrow.uturn.backward").frame(maxWidth: .infinity)
+                            Image(systemName: "arrow.uturn.backward").frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
                         .disabled(todayWaters.isEmpty)
+                        .accessibilityLabel("Undo last entry")
                     }
 
                     HStack {
-                        Text("\(todayWaters.count) glasses today")
+                        Text("\(todayWaters.count) \(todayWaters.count == 1 ? "entry" : "entries") today")
                             .foregroundStyle(.secondary)
                         Spacer()
                         Button("Edit goal") { showGoal = true }

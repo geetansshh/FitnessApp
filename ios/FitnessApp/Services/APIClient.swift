@@ -8,6 +8,8 @@ import Foundation
 struct APIClient {
     var baseURL: URL
     var userId: String = "local"
+    /// Shared secret; sent as X-API-Key when the server has API_KEY configured.
+    var apiKey: String = ""
 
     struct APIError: LocalizedError { let message: String; var errorDescription: String? { message } }
 
@@ -28,11 +30,11 @@ struct APIClient {
         var waterGoalMl: Int
     }
     struct FoodDTO: Codable {
-        var date: String; var name: String; var calories: Int
+        var id: String; var date: String; var name: String; var calories: Int
         var protein: Double; var carbs: Double; var fats: Double
     }
-    struct WaterDTO: Codable { var date: String; var amountMl: Int }
-    struct WeightDTO: Codable { var date: String; var weightKg: Double }
+    struct WaterDTO: Codable { var id: String; var date: String; var amountMl: Int }
+    struct WeightDTO: Codable { var id: String; var date: String; var weightKg: Double }
 
     // MARK: Requests
     func health() async throws {
@@ -62,6 +64,7 @@ struct APIClient {
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(userId, forHTTPHeaderField: "X-User-Id")
+        if !apiKey.isEmpty { req.setValue(apiKey, forHTTPHeaderField: "X-API-Key") }
         if let body { req.httpBody = try JSONEncoder().encode(body) }
         return req
     }
