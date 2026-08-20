@@ -36,7 +36,7 @@ personal team for development. The widget target is `FitnessAppWidgetExtension`.
 
 **Debug helpers** (compiled out of Release): launch args `-seedDemo` (loads sample data) and
 `-tab food|goals|water|settings` (opens a tab) for screenshot verification.
-Deployment target iOS 17. Bundle id `com.fitnessapp.FitnessApp` (change it under target
+Deployment target iOS 17. Bundle id `com.geetansh.FitnessApp` (change it under target
 Signing & Capabilities and set your Team before running on a device / TestFlight).
 
 ## Backend (optional)
@@ -59,9 +59,8 @@ is intentionally identical so offline and server results match.
 
 ## Shipping to TestFlight
 
-1. Add a 1024×1024 app icon to `ios/FitnessApp/Assets.xcassets/AppIcon.appiconset`.
-2. In Xcode: set your Apple Developer Team, a unique bundle id, then Product → Archive.
-3. Distribute App → App Store Connect → upload → add testers in TestFlight.
+1. In Xcode: set your Apple Developer Team, a unique bundle id, then Product → Archive.
+2. Distribute App → App Store Connect → upload → add testers in TestFlight.
    (Requires Apple Developer Program membership.)
 
 ## Not in v1 (by design)

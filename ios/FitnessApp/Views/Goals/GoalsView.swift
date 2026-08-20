@@ -77,6 +77,16 @@ struct WeightChartCard: View {
     let weights: [WeightEntry]
     let system: UnitSystem
 
+    /// Zoom to the data (plus the goal line) with a little padding — a 0-based
+    /// axis flattens a few kg of change into a straight line.
+    private var yDomain: ClosedRange<Double> {
+        let values = weights.map { Units.displayWeight(kg: $0.weightKg, system: system) }
+            + [Units.displayWeight(kg: profile.goalWeightKg, system: system)]
+        let lo = values.min() ?? 0, hi = values.max() ?? 1
+        let pad = max((hi - lo) * 0.15, 1)
+        return (lo - pad)...(hi + pad)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             CardTitle("Weight trend")
@@ -106,6 +116,7 @@ struct WeightChartCard: View {
                             Text("Goal").font(.caption2).foregroundStyle(Theme.calorie)
                         }
                 }
+                .chartYScale(domain: yDomain)
                 .frame(height: 200)
             }
         }
