@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// The dashboard: date nav, calorie ring, quick actions, macros, water, streak, weight goal.
+/// The dashboard: date nav, streak, calorie + macro rings, food log, water, weight goal.
 struct DashboardView: View {
     let profile: UserProfile
     @Environment(\.modelContext) private var context
@@ -13,8 +13,9 @@ struct DashboardView: View {
     @Query private var allWaters: [WaterEntry]
     @Query(sort: \WeightEntry.day) private var weights: [WeightEntry]
 
-    @State private var showAddFood = false
     @State private var showAddWeight = false
+    @State private var weightInput = ""
+    @State private var addingFood: MealType?
 
     private var system: UnitSystem { UnitSystem(rawValue: unitRaw) ?? .metric }
     private var dayKey: String { day.dayKey }
@@ -26,8 +27,6 @@ struct DashboardView: View {
     private var streak: Int {
         Insights.streak(foodDays: Set(allFoods.map { $0.day }))
     }
-    /// One tap = one glass. 250 ml (metric) / 8 oz (imperial ≈ 237 ml).
-    private var glassMl: Int { system == .metric ? 250 : 237 }
 
     var body: some View {
         NavigationStack {
@@ -36,7 +35,7 @@ struct DashboardView: View {
                     DateNavBar(selection: day)
 
                     if streak > 0 {
-                        Label("\(streak)-day logging streak 🔥", systemImage: "flame.fill")
+                        Label("\(streak)-day logging streak", systemImage: "flame.fill")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.calorie)
                             .frame(maxWidth: .infinity)
@@ -46,62 +45,44 @@ struct DashboardView: View {
                             .transition(.scale.combined(with: .opacity))
                     }
 
-                    // Calorie ring
-                    VStack(spacing: 10) {
+                    // Hero card: everything about eating, including the one add button.
+                    VStack(spacing: Theme.stack) {
                         CalorieRing(summary: summary)
-                        HStack(spacing: 24) {
-                            statColumn("Eaten", "\(summary.caloriesConsumed)", Theme.calorie)
-                            statColumn("Target", "\(summary.calorieTarget)", .secondary)
-                            statColumn("Left", "\(max(summary.caloriesRemaining, 0))", Theme.weight)
+                        HStack(spacing: 20) {
+                            MacroRing(title: "Protein", grams: summary.protein,
+                                      target: summary.proteinTarget, color: Theme.protein)
+                            MacroRing(title: "Carbs", grams: summary.carbs,
+                                      target: summary.carbsTarget, color: Theme.carbs)
+                            MacroRing(title: "Fats", grams: summary.fats,
+                                      target: summary.fatsTarget, color: Theme.fats)
                         }
+                        Button { Haptics.tap(); addingFood = .suggested() } label: {
+                            Label("Add food", systemImage: "plus")
+                                .font(.headline).frame(maxWidth: .infinity, minHeight: 28)
+                        }
+                        .buttonStyle(.borderedProminent).tint(Theme.calorie)
+                        .controlSize(.large)
                     }
                     .frame(maxWidth: .infinity)
                     .card()
 
-                    // One-tap logging without leaving Today.
-                    HStack(spacing: 10) {
-                        QuickAction(icon: "fork.knife", title: "Log food", color: Theme.calorie) {
-                            showAddFood = true
-                        }
-                        QuickAction(icon: "drop.fill", title: "+ Glass", color: Theme.water) {
-                            withAnimation(Theme.motion) {
-                                context.insert(WaterEntry(day: dayKey, amountMl: glassMl))
-                            }
-                        }
-                        QuickAction(icon: "scalemass", title: "Weigh in", color: Theme.weight) {
-                            showAddWeight = true
-                        }
-                    }
+                    WaterCard(profile: profile, dayKey: dayKey, entries: dayWaters)
 
-                    // Macros
-                    VStack(alignment: .leading, spacing: Theme.stack) {
-                        CardTitle("Macros", accessory: dayFoods.isEmpty ? nil : "\(dayFoods.count) items")
-                        MacroBar(title: "Protein", grams: summary.protein,
-                                 target: summary.proteinTarget, color: Theme.protein)
-                        MacroBar(title: "Carbs", grams: summary.carbs,
-                                 target: summary.carbsTarget, color: Theme.carbs)
-                        MacroBar(title: "Fats", grams: summary.fats,
-                                 target: summary.fatsTarget, color: Theme.fats)
-                    }
-                    .card()
-
-                    // Water
-                    ProgressStat(
-                        title: "Water",
-                        caption: "\(Units.displayVolume(ml: summary.waterMl, system: system)) / \(Units.displayVolume(ml: summary.waterGoalMl, system: system)) \(system.volumeUnit)",
-                        progress: summary.waterProgress, color: Theme.water)
-                        .card()
+                    // Food log lives here now — no separate tab. Adding is the hero card's button.
+                    DayFoodCard(dayKey: dayKey, foods: dayFoods)
 
                     // Goal / weight trend
-                    GoalProgressCard(profile: profile, weights: weights, system: system)
+                    GoalProgressCard(profile: profile, weights: weights, system: system) {
+                        showAddWeight = true
+                    }
                 }
                 .padding(Theme.gutter)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle(greeting)
-            .sheet(isPresented: $showAddFood) { AddFoodView(day: dayKey) }
-            .sheet(isPresented: $showAddWeight) {
-                AddWeightSheet(system: system) { upsertWeight(kg: $0) }
+            .sheet(item: $addingFood) { AddFoodView(day: dayKey, defaultMeal: $0) }
+            .logWeightAlert(isPresented: $showAddWeight, value: $weightInput, system: system) {
+                upsertWeight(kg: $0)
             }
         }
         .onAppear(perform: publishWidget)
@@ -134,14 +115,6 @@ struct DashboardView: View {
         }
         return "\(part)\(name)"
     }
-
-    private func statColumn(_ label: String, _ value: String, _ color: Color) -> some View {
-        VStack(spacing: 2) {
-            Text(value).font(.title3.weight(.semibold).monospacedDigit()).foregroundStyle(color)
-                .contentTransition(.numericText())
-            Text(label).font(.caption).foregroundStyle(.secondary)
-        }
-    }
 }
 
 /// Weight goal progress + latest vs goal + estimated time to goal.
@@ -149,6 +122,7 @@ struct GoalProgressCard: View {
     let profile: UserProfile
     let weights: [WeightEntry]
     let system: UnitSystem
+    let onLogWeight: () -> Void
 
     private var latest: Double { weights.last?.weightKg ?? profile.weightKg }
     private var start: Double { weights.first?.weightKg ?? profile.startWeightKg }
@@ -186,6 +160,12 @@ struct GoalProgressCard: View {
                 }
             }
             .font(.caption).foregroundStyle(.secondary)
+
+            Button { Haptics.tap(); onLogWeight() } label: {
+                Label("Log weight", systemImage: "scalemass")
+                    .font(.subheadline).frame(maxWidth: .infinity, minHeight: 24)
+            }
+            .buttonStyle(.bordered).tint(Theme.weight)
         }
         .card()
     }

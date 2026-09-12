@@ -144,9 +144,9 @@ struct SettingsView: View {
             }
             profile.weightKg = kg
             profile.recomputeTargets()
-            healthStatus = "Connected ✓ Imported \(String(format: "%.1f", kg)) kg."
+            healthStatus = "Connected. Imported \(String(format: "%.1f", kg)) kg."
         } else {
-            healthStatus = "Connected ✓"
+            healthStatus = "Connected."
         }
     }
 
@@ -159,7 +159,7 @@ struct SettingsView: View {
 
     private func testConnection() async {
         guard let c = client() else { syncStatus = "Invalid URL"; return }
-        do { try await c.health(); syncStatus = "Connected ✓" }
+        do { try await c.health(); syncStatus = "Connected." }
         catch { syncStatus = "Failed: \(error.localizedDescription)" }
     }
 
@@ -169,7 +169,7 @@ struct SettingsView: View {
         do {
             try await SyncService.backup(profile: profile, foods: foods, waters: waters,
                                          weights: weights, client: c)
-            syncStatus = "Backed up ✓"
+            syncStatus = "Backed up."
         } catch {
             syncStatus = "Failed: \(error.localizedDescription)"
         }

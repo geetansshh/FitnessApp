@@ -1,5 +1,25 @@
 import SwiftUI
 
+/// Trimmed circle with a track behind it — the shape every metric on Today uses.
+struct ProgressRing<Center: View>: View {
+    let progress: Double
+    let color: Color
+    var lineWidth: CGFloat = 18
+    @ViewBuilder var center: Center
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color(.tertiarySystemFill), lineWidth: lineWidth)
+            Circle().trim(from: 0, to: progress)
+                .stroke(Theme.sweep(color),
+                        style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(Theme.motion, value: progress)
+            center
+        }
+    }
+}
+
 /// Big calorie ring: consumed vs target with "remaining" in the center.
 /// Turns red once you go over budget so the state is readable at a glance.
 struct CalorieRing: View {
@@ -8,13 +28,7 @@ struct CalorieRing: View {
     private var tint: Color { over ? .red : Theme.calorie }
 
     var body: some View {
-        ZStack {
-            Circle().stroke(Color(.tertiarySystemFill), lineWidth: 18)
-            Circle()
-                .trim(from: 0, to: summary.calorieProgress)
-                .stroke(Theme.sweep(tint), style: StrokeStyle(lineWidth: 18, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(Theme.motion, value: summary.calorieProgress)
+        ProgressRing(progress: summary.calorieProgress, color: tint) {
             VStack(spacing: 2) {
                 Text("\(abs(summary.caloriesRemaining))")
                     .font(.system(size: 44, weight: .bold, design: .rounded))
@@ -35,8 +49,8 @@ struct CalorieRing: View {
     }
 }
 
-/// A labeled macro progress bar (grams consumed vs target).
-struct MacroBar: View {
+/// One macro as a small ring: progress in the ring, grams under it.
+struct MacroRing: View {
     let title: String
     let grams: Double
     let target: Int
@@ -45,24 +59,18 @@ struct MacroBar: View {
     private var progress: Double { target > 0 ? min(grams / Double(target), 1) : 0 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Text(title).font(.subheadline.weight(.medium))
-                Spacer()
-                Text("\(Int(grams)) / \(target) g")
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+        VStack(spacing: 6) {
+            ProgressRing(progress: progress, color: color, lineWidth: 7) {
+                Text("\(Int(grams))")
+                    .font(.footnote.weight(.semibold).monospacedDigit())
+                    .contentTransition(.numericText())
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color(.tertiarySystemFill))
-                    Capsule().fill(Theme.bar(color))
-                        .frame(width: max(geo.size.width * progress, progress > 0 ? 8 : 0))
-                        .animation(Theme.motion, value: progress)
-                }
-            }
-            .frame(height: 9)
+            .frame(width: 58, height: 58)
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text("of \(target)g").font(.caption2).foregroundStyle(.tertiary)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title): \(Int(grams)) of \(target) grams")
     }
 }
 
@@ -107,44 +115,24 @@ struct DateNavBar: View {
     }
 }
 
-/// Small linear progress with a caption, used for water/goal.
-struct ProgressStat: View {
-    let title: String
-    let caption: String
-    let progress: Double
-    let color: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.tight) {
-            CardTitle(title, accessory: caption)
-            ProgressView(value: progress).tint(color)
-                .animation(Theme.motion, value: progress)
-        }
-    }
-}
-
-/// One tappable action tile in the dashboard's quick-action row.
-struct QuickAction: View {
-    let icon: String
-    let title: String
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button {
-            Haptics.tap()
-            action()
-        } label: {
-            VStack(spacing: 5) {
-                Image(systemName: icon).font(.title3)
-                Text(title).font(.caption2.weight(.medium))
+extension View {
+    /// Weigh-in popup. One number never justified a full sheet, and an alert
+    /// keeps the keyboard and the current screen in view.
+    func logWeightAlert(isPresented: Binding<Bool>, value: Binding<String>,
+                        system: UnitSystem, onSave: @escaping (Double) -> Void) -> some View {
+        alert("Log weight", isPresented: isPresented) {
+            TextField(system.weightUnit, text: value)
+                .keyboardType(.decimalPad)
+            Button("Cancel", role: .cancel) { value.wrappedValue = "" }
+            Button("Save") {
+                if let v = Double(value.wrappedValue), v > 0 {
+                    Haptics.success()
+                    onSave(Units.kgFromDisplay(v, system: system))
+                }
+                value.wrappedValue = ""
             }
-            .foregroundStyle(color)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(color.opacity(0.12),
-                        in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        } message: {
+            Text("Today's weight in \(system.weightUnit)")
         }
-        .buttonStyle(.plain)
     }
 }

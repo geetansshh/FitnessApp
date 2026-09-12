@@ -88,7 +88,7 @@ struct OnboardingView: View {
                     .disabled(!vm.isValid)
                 }
             }
-            .navigationTitle("Welcome 👋")
+            .navigationTitle("Welcome")
             .onAppear { vm.system = system }
         }
     }

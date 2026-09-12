@@ -74,6 +74,10 @@ func (s *Service) SaveProfile(user string, p models.Profile) (models.Profile, er
 	return p, nil
 }
 
+// --- food catalog (reference data, same for every user) ---
+
+func (s *Service) FoodCatalog() ([]models.CatalogItem, error) { return s.repo.ListCatalog() }
+
 // --- food ---
 
 func (s *Service) ListFood(user, date string) ([]models.FoodEntry, error) {

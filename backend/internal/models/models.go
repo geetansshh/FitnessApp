@@ -29,6 +29,18 @@ type FoodEntry struct {
 	CreatedAt string  `json:"createdAt"`
 }
 
+// CatalogItem is one row of the searchable food table. It is app-wide reference
+// data, not user data, so it carries no user_id.
+type CatalogItem struct {
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	Serving  string  `json:"serving"`
+	Calories int     `json:"calories"`
+	Protein  float64 `json:"protein"`
+	Carbs    float64 `json:"carbs"`
+	Fats     float64 `json:"fats"`
+}
+
 type WaterEntry struct {
 	ID        string `json:"id"`
 	Date      string `json:"date"`

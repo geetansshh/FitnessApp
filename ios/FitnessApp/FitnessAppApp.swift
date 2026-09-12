@@ -13,6 +13,7 @@ enum SettingsKey {
     static let apiKey = "apiKey"
     static let onboarded = "onboarded"
     static let healthKitEnabled = "healthKitEnabled"
+    static let foodCatalogFetchedAt = "foodCatalogFetchedAt"   // epoch seconds of the last catalog pull
 }
 
 @main
@@ -24,14 +25,15 @@ struct FitnessAppApp: App {
         #if DEBUG
         CalorieCalculator.selfCheck()
         Insights.selfCheck()
-        FoodLibrary.selfCheck()
+        FoodCatalog.selfCheck()
         #endif
         do {
             container = try ModelContainer(for: UserProfile.self, FoodEntry.self,
-                                           WaterEntry.self, WeightEntry.self)
+                                           WaterEntry.self, WeightEntry.self, FoodCatalogItem.self)
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
+        FoodCatalog.seedIfEmpty(container.mainContext)
         #if DEBUG
         if CommandLine.arguments.contains("-seedDemo") {
             DemoSeed.run(container.mainContext)

@@ -13,6 +13,7 @@ struct AddFoodView: View {
     var editing: FoodEntry?
     var defaultMeal: MealType = MealType.suggested()
 
+    @Query private var allFoods: [FoodEntry]
     @State private var query = ""
     @State private var name = ""
     @State private var calories = ""
@@ -21,18 +22,38 @@ struct AddFoodView: View {
     @State private var fats = ""
     @State private var meal: MealType = .snack
     @State private var servings = 1.0
-    /// Per-serving values of the picked library item, so the stepper can rescale.
-    @State private var picked: FoodItem?
+    /// Per-serving values of the picked catalog row, so the stepper can rescale.
+    @State private var picked: FoodCatalogItem?
     @State private var loaded = false
     @FocusState private var searchFocused: Bool
 
     private var caloriesValue: Int? { Int(calories) }
     private var isValid: Bool { (caloriesValue ?? 0) > 0 }
-    private var results: [FoodItem] { FoodLibrary.search(query) }
+    private var results: [FoodCatalogItem] { FoodCatalog.search(query, in: context) }
+
+    /// Up to 8 most-recently-logged distinct foods, for one-tap re-use.
+    private var recent: [FoodEntry] {
+        var seen = Set<String>()
+        var out: [FoodEntry] = []
+        for f in allFoods.sorted(by: { $0.createdAt > $1.createdAt }) {
+            let key = f.name.lowercased()
+            guard !f.name.isEmpty, !seen.contains(key) else { continue }
+            seen.insert(key); out.append(f)
+            if out.count == 8 { break }
+        }
+        return out
+    }
 
     var body: some View {
         NavigationStack {
             Form {
+                if editing == nil, !recent.isEmpty, query.isEmpty {
+                    Section {
+                        RecentFoodRow(recent: recent) { pick(recent: $0) }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                    }
+                }
+
                 if editing == nil {
                     Section {
                         HStack {
@@ -80,7 +101,7 @@ struct AddFoodView: View {
 
                 Section("Meal") {
                     Picker("Meal", selection: $meal) {
-                        ForEach(MealType.allCases) { Text("\($0.emoji) \($0.label)").tag($0) }
+                        ForEach(MealType.allCases) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented)
                 }
@@ -103,7 +124,7 @@ struct AddFoodView: View {
         }
     }
 
-    private func libraryRow(_ item: FoodItem) -> some View {
+    private func libraryRow(_ item: FoodCatalogItem) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.name)
@@ -122,13 +143,25 @@ struct AddFoodView: View {
         return "\(n) × \(picked?.serving ?? "")"
     }
 
-    private func pick(_ item: FoodItem) {
+    private func pick(_ item: FoodCatalogItem) {
         Haptics.tap()
         picked = item
         name = item.name
         servings = 1
         rescale()
         query = ""
+        searchFocused = false
+    }
+
+    /// A recent entry carries no serving size, so it fills the fields as-is.
+    private func pick(recent f: FoodEntry) {
+        Haptics.tap()
+        picked = nil
+        name = f.name
+        calories = String(f.calories)
+        protein = trimmed(f.protein)
+        carbs = trimmed(f.carbs)
+        fats = trimmed(f.fats)
         searchFocused = false
     }
 
@@ -185,5 +218,37 @@ struct AddFoodView: View {
         }
         Haptics.success()
         dismiss()
+    }
+}
+
+/// Horizontal strip of recently logged foods, for one-tap re-use in the sheet.
+struct RecentFoodRow: View {
+    let recent: [FoodEntry]
+    /// What a tap does here — the dashboard logs straight away, the sheet prefills.
+    var caption = "RECENT · TAP TO RE-USE"
+    let onPick: (FoodEntry) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(caption)
+                .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(recent) { f in
+                        Button { onPick(f) } label: {
+                            VStack(spacing: 2) {
+                                Text(f.name).font(.caption2).lineLimit(1)
+                                Text("\(f.calories)").font(.caption2.weight(.semibold))
+                                    .foregroundStyle(Theme.calorie)
+                            }
+                            .padding(.horizontal, 12).frame(height: 48)
+                            .background(Color(.tertiarySystemFill),
+                                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
     }
 }

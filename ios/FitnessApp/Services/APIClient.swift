@@ -33,6 +33,10 @@ struct APIClient {
         var id: String; var date: String; var name: String; var calories: Int
         var protein: Double; var carbs: Double; var fats: Double
     }
+    struct CatalogItemDTO: Decodable {
+        var id: String; var name: String; var serving: String; var calories: Int
+        var protein: Double; var carbs: Double; var fats: Double
+    }
     struct WaterDTO: Codable { var id: String; var date: String; var amountMl: Int }
     struct WeightDTO: Codable { var id: String; var date: String; var weightKg: Double }
 
@@ -43,6 +47,11 @@ struct APIClient {
 
     func calorieTarget(_ req: CalorieTargetRequest) async throws -> CalorieTargetResponse {
         try await send(path: "/api/v1/calorie-target", method: "POST", body: req)
+    }
+
+    /// The server's food table — reference data, cached locally by `FoodCatalog`.
+    func foodCatalog() async throws -> [CatalogItemDTO] {
+        try await send(path: "/api/v1/food/catalog", method: "GET", body: Optional<Int>.none)
     }
 
     func putProfile(_ p: ProfileDTO) async throws {

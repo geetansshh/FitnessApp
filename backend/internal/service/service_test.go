@@ -14,6 +14,7 @@ type fakeRepo struct {
 	food     []models.FoodEntry
 	water    []models.WaterEntry
 	weight   []models.WeightEntry
+	catalog  []models.CatalogItem
 	putCalls int
 }
 
@@ -28,6 +29,8 @@ func (f *fakeRepo) PutProfile(_ string, p models.Profile) error {
 	f.putCalls++
 	return nil
 }
+
+func (f *fakeRepo) ListCatalog() ([]models.CatalogItem, error) { return f.catalog, nil }
 
 // AddFood mimics the real upsert-on-id behaviour.
 func (f *fakeRepo) AddFood(_ string, e models.FoodEntry) error {

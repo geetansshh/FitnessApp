@@ -45,6 +45,17 @@ func (h *Handlers) calorieTarget(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
+// --- food catalog ---
+
+func (h *Handlers) foodCatalog(w http.ResponseWriter, r *http.Request) {
+	items, err := h.svc.FoodCatalog()
+	if err != nil {
+		fail(w, err, "")
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 // --- profile ---
 
 func (h *Handlers) getProfile(w http.ResponseWriter, r *http.Request) {

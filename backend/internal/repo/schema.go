@@ -19,6 +19,15 @@ CREATE TABLE IF NOT EXISTS food (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_food_user_date ON food (user_id, date);
+CREATE TABLE IF NOT EXISTS food_catalog (
+    id       TEXT PRIMARY KEY,
+    name     TEXT NOT NULL,
+    serving  TEXT NOT NULL,
+    calories INTEGER NOT NULL,
+    protein  DOUBLE PRECISION NOT NULL,
+    carbs    DOUBLE PRECISION NOT NULL,
+    fats     DOUBLE PRECISION NOT NULL
+);
 CREATE TABLE IF NOT EXISTS water (
     id         TEXT PRIMARY KEY,
     user_id    TEXT NOT NULL,

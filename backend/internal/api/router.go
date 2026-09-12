@@ -17,6 +17,7 @@ func NewRouter(svc *service.Service, apiKey string) http.Handler {
 	mux.HandleFunc("GET /api/v1/profile", h.getProfile)
 	mux.HandleFunc("PUT /api/v1/profile", h.putProfile)
 
+	mux.HandleFunc("GET /api/v1/food/catalog", h.foodCatalog)
 	mux.HandleFunc("GET /api/v1/food", h.listFood)
 	mux.HandleFunc("POST /api/v1/food", h.createFood)
 	mux.HandleFunc("DELETE /api/v1/food/{id}", h.deleteFood)

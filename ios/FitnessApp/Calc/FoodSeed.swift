@@ -1,33 +1,29 @@
 import Foundation
 
-/// A small built-in food table so logging a meal is a search-and-tap instead of
-/// typing four numbers. Values are per the stated serving, rounded, from common
-/// nutrition references.
+/// Seed rows for the local food table, used only when the cache is empty and no
+/// server has been reached yet. The live table is `FoodCatalogItem` in SwiftData,
+/// refreshed from the backend's `food_catalog`; search runs there, not here.
 ///
-/// ponytail: static array, no network food DB. Swap in an API only if you start
-/// missing foods often — search over ~80 rows is instant and works offline.
-struct FoodItem: Identifiable, Hashable {
+/// Kept in sync by hand with `backend/internal/repo/food_catalog.json` — the
+/// server copy wins the moment sync is on.
+struct FoodItem {
     let name: String
     let serving: String
     let calories: Int
     let protein: Double
     let carbs: Double
     let fats: Double
-    var id: String { name + serving }
+
+    /// Stable id from the name, matching the ids in the backend seed JSON.
+    var asCatalogItem: FoodCatalogItem {
+        FoodCatalogItem(id: name.lowercased().replacing(#/[^a-z0-9]+/#, with: "-")
+                            .trimmingCharacters(in: CharacterSet(charactersIn: "-")),
+                        name: name, serving: serving, calories: calories,
+                        protein: protein, carbs: carbs, fats: fats)
+    }
 }
 
-enum FoodLibrary {
-    /// Case/diacritic-insensitive prefix-and-substring match, best matches first.
-    static func search(_ query: String, limit: Int = 12) -> [FoodItem] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return [] }
-        let hits = all.filter { $0.name.lowercased().contains(q) }
-        return Array(hits.sorted {
-            let a = $0.name.lowercased().hasPrefix(q), b = $1.name.lowercased().hasPrefix(q)
-            return a == b ? $0.name.count < $1.name.count : a
-        }.prefix(limit))
-    }
-
+enum FoodSeed {
     static let all: [FoodItem] = [
         // Grains & staples
         .init(name: "Roti / chapati", serving: "1 medium", calories: 104, protein: 3, carbs: 20, fats: 2),
@@ -111,16 +107,3 @@ enum FoodLibrary {
         .init(name: "Protein bar", serving: "1 bar", calories: 210, protein: 20, carbs: 21, fats: 7),
     ]
 }
-
-#if DEBUG
-extension FoodLibrary {
-    /// ponytail: one runnable check for the search ranking.
-    static func selfCheck() {
-        assert(search("").isEmpty, "empty query -> no results")
-        assert(search("banana").first?.calories == 105, "banana lookup failed")
-        // Prefix matches must outrank substring matches.
-        assert(search("egg").first?.name.hasPrefix("Egg") == true, "prefix should rank first")
-        assert(search("zzzzz").isEmpty, "unknown food -> no results")
-    }
-}
-#endif

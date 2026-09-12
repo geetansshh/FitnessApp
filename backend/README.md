@@ -82,7 +82,10 @@ Error mapping is centralised in `api/respond.go`: a `*validation.Error` becomes
 ## Storage & users
 
 Postgres: `profiles` (JSONB, one row per user), `food` / `water` / `weight`
-(typed columns, indexed by `user_id`+`date`). No auth by default; data is keyed
+(typed columns, indexed by `user_id`+`date`), and `food_catalog` — the shared
+searchable food table, seeded on startup from `internal/repo/food_catalog.json`
+with `ON CONFLICT DO NOTHING`, so rows you edit or add in the DB survive
+restarts. The app caches the catalog locally and searches its copy. No auth by default; data is keyed
 by an optional `X-User-Id` header (default `local`). Set `API_KEY` to gate the
 public URL with a shared secret.
 
@@ -121,6 +124,10 @@ curl -s -X POST localhost:8080/api/v1/food \
 
 curl -s 'localhost:8080/api/v1/food?date=2026-07-26'
 curl -s -X DELETE localhost:8080/api/v1/food/<id>   # 204
+
+# The searchable food table (reference data, same for every user).
+# The app pulls this weekly and searches its local copy.
+curl -s localhost:8080/api/v1/food/catalog
 ```
 
 ### Water

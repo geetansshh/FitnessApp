@@ -20,6 +20,8 @@ type Repository interface {
 	ListFood(user, date string) ([]models.FoodEntry, error)
 	DeleteFood(user, id string) error
 
+	ListCatalog() ([]models.CatalogItem, error)
+
 	AddWater(user string, e models.WaterEntry) error
 	ListWater(user, date string) ([]models.WaterEntry, error)
 	DeleteWater(user, id string) error

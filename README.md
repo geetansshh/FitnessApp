@@ -19,15 +19,18 @@ open ios/FitnessApp.xcodeproj
 ```
 Pick an iPhone simulator and hit ⌘R. Everything works offline — no backend needed.
 
-**Features:** onboarding with a Mifflin-St Jeor calorie/macro calculator (+ water goal); a Today
-dashboard with date navigation, a logging **streak**, calorie ring, macro bars, water,
-weight-goal progress with an **ETA to goal**, and **one-tap quick actions** (log food / add a
-glass / weigh in) without leaving the tab; food logging grouped by **meal** with a **searchable
-built-in food table** (~70 common foods, servings stepper), **recent foods**, per-meal add
-buttons, swipe-to-repeat, and tap-to-edit; a water tracker with preset amounts and
-configurable local reminder times; **weight-trend** and **14-day calorie-history** charts; editable
-goals that recompute the target; **Apple Health** two-way weight sync + steps/energy read; a
-**Home/Lock-Screen widget** (calories left + water); and settings (units, reminders, sync, reset).
+**Features:** onboarding with a Mifflin-St Jeor calorie/macro calculator (+ water goal); a single
+Today screen that holds the whole day — date navigation, a logging **streak**, calorie ring, the
+food log grouped by **meal**, macro rings, water, and weight-goal progress with an **ETA to
+goal**; food is added in a bottom sheet holding **recent foods** for one-tap re-use and a
+**searchable food table** (~70 common foods, servings stepper) that lives in the local database —
+seeded on first launch and refreshed weekly from the backend's `food_catalog` when sync is on —
+plus **recent chips** that log in one tap, a per-row menu to repeat/delete, and tap-to-edit; a
+compact **water row** where one tap logs a glass and a long-press gives bottle presets, undo and
+the goal, with configurable local reminder times; **weight-trend** and **14-day calorie-history**
+charts; editable goals that recompute the target; **Apple Health** two-way weight sync +
+steps/energy read; a **Home/Lock-Screen widget** (calories left + water); and settings (units,
+reminders, sync, reset).
 
 **Stack:** SwiftUI · SwiftData (local) · Swift Charts · WidgetKit · HealthKit · UserNotifications · MVVM.
 
@@ -35,7 +38,7 @@ goals that recompute the target; **Apple Health** two-way weight sync + steps/en
 personal team for development. The widget target is `FitnessAppWidgetExtension`.
 
 **Debug helpers** (compiled out of Release): launch args `-seedDemo` (loads sample data) and
-`-tab food|goals|water|settings` (opens a tab) for screenshot verification.
+`-tab today|goals|settings` (opens a tab) for screenshot verification.
 Deployment target iOS 17. Bundle id `com.geetansh.FitnessApp` (change it under target
 Signing & Capabilities and set your Team before running on a device / TestFlight).
 

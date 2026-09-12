@@ -27,7 +27,50 @@ func NewPostgres(databaseURL string) (*Postgres, error) {
 		pool.Close()
 		return nil, err
 	}
-	return &Postgres{pool: pool}, nil
+	p := &Postgres{pool: pool}
+	if err := p.seedCatalog(); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return p, nil
+}
+
+// seedCatalog inserts the shipped food table once. Existing ids are left alone,
+// so anything edited server-side survives a restart.
+func (p *Postgres) seedCatalog() error {
+	items, err := catalogSeedItems()
+	if err != nil {
+		return err
+	}
+	for _, it := range items {
+		_, err := p.pool.Exec(ctx(), `INSERT INTO food_catalog (id, name, serving, calories, protein, carbs, fats)
+            VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING`,
+			it.ID, it.Name, it.Serving, it.Calories, it.Protein, it.Carbs, it.Fats)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ListCatalog returns the whole food table; the app caches it locally and
+// searches the cache, so there is no server-side search endpoint.
+func (p *Postgres) ListCatalog() ([]models.CatalogItem, error) {
+	rows, err := p.pool.Query(ctx(), `SELECT id, name, serving, calories, protein, carbs, fats
+        FROM food_catalog ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []models.CatalogItem{}
+	for rows.Next() {
+		var it models.CatalogItem
+		if err := rows.Scan(&it.ID, &it.Name, &it.Serving, &it.Calories, &it.Protein, &it.Carbs, &it.Fats); err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
 }
 
 func (p *Postgres) Close() { p.pool.Close() }

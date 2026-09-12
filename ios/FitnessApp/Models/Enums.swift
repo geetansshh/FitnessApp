@@ -74,12 +74,12 @@ enum MealType: String, CaseIterable, Codable, Identifiable {
         case .snack: return "Snack"
         }
     }
-    var emoji: String {
+    var icon: String {
         switch self {
-        case .breakfast: return "🌅"
-        case .lunch: return "☀️"
-        case .dinner: return "🌙"
-        case .snack: return "🍎"
+        case .breakfast: return "sunrise.fill"
+        case .lunch: return "sun.max.fill"
+        case .dinner: return "moon.stars.fill"
+        case .snack: return "takeoutbag.and.cup.and.straw.fill"
         }
     }
     /// Ordering for grouped display.

@@ -11,6 +11,7 @@ struct GoalsView: View {
     @Query(sort: \WeightEntry.day) private var weights: [WeightEntry]
     @Query private var allFoods: [FoodEntry]
     @State private var showAddWeight = false
+    @State private var weightInput = ""
     @State private var showEdit = false
 
     private var system: UnitSystem { UnitSystem(rawValue: unitRaw) ?? .metric }
@@ -30,23 +31,6 @@ struct GoalsView: View {
                     }
                     .buttonStyle(.borderedProminent).tint(Theme.weight)
 
-                    // Recent history
-                    VStack(alignment: .leading, spacing: 10) {
-                        CardTitle("History")
-                        if weights.isEmpty {
-                            Text("No entries yet.").foregroundStyle(.secondary)
-                        }
-                        ForEach(weights.reversed()) { w in
-                            HStack {
-                                Text(w.day).foregroundStyle(.secondary)
-                                Spacer()
-                                Text("\(Units.displayWeight(kg: w.weightKg, system: system), specifier: "%.1f") \(system.weightUnit)")
-                                    .fontWeight(.medium)
-                            }
-                            .font(.subheadline)
-                        }
-                    }
-                    .card()
                 }
                 .padding()
             }
@@ -55,10 +39,8 @@ struct GoalsView: View {
             .toolbar {
                 Button("Edit") { showEdit = true }
             }
-            .sheet(isPresented: $showAddWeight) {
-                AddWeightSheet(system: system) { kg in
-                    upsertWeight(kg: kg)
-                }
+            .logWeightAlert(isPresented: $showAddWeight, value: $weightInput, system: system) {
+                upsertWeight(kg: $0)
             }
             .sheet(isPresented: $showEdit) {
                 EditProfileSheet(profile: profile, system: system)
@@ -178,37 +160,5 @@ struct CalorieHistoryCard: View {
             }
         }
         .card()
-    }
-}
-
-struct AddWeightSheet: View {
-    let system: UnitSystem
-    let onSave: (Double) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var value = ""
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Today's weight (\(system.weightUnit))") {
-                    TextField("0.0", text: $value)
-                        .keyboardType(.decimalPad)
-                }
-            }
-            .navigationTitle("Log weight")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if let v = Double(value), v > 0 {
-                            onSave(Units.kgFromDisplay(v, system: system))
-                            dismiss()
-                        }
-                    }
-                    .disabled(Double(value) == nil)
-                }
-            }
-        }
     }
 }
